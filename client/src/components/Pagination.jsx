@@ -1,42 +1,37 @@
-export default function Pagination({ page, totalPages, onPageChange }) {
-  if (totalPages <= 1) return null;
-
-  const pages = [];
-  for (let i = 1; i <= totalPages; i++) {
-    pages.push(i);
+function Pagination({
+  page,
+  totalPages,
+  hasNextPage,
+  hasPreviousPage,
+  onPageChange,
+}) {
+  if (totalPages <= 1) {
+    return null;
   }
 
   return (
     <div className="pagination">
       <button
-        className="page-btn"
-        disabled={page <= 1}
+        type="button"
+        disabled={!hasPreviousPage}
         onClick={() => onPageChange(page - 1)}
       >
-        ‹ Prev
+        ← Previous
       </button>
 
-      {pages.map((p) => (
-        <button
-          key={p}
-          className={`page-btn${p === page ? ' active' : ''}`}
-          onClick={() => onPageChange(p)}
-        >
-          {p}
-        </button>
-      ))}
-
-      <button
-        className="page-btn"
-        disabled={page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
-      >
-        Next ›
-      </button>
-
-      <span className="page-info">
+      <span>
         Page {page} of {totalPages}
       </span>
+
+      <button
+        type="button"
+        disabled={!hasNextPage}
+        onClick={() => onPageChange(page + 1)}
+      >
+        Next →
+      </button>
     </div>
   );
 }
+
+export default Pagination;
