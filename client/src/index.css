@@ -1334,6 +1334,8 @@ button {
 }
 
 .note-actions button {
+  min-width: 62px;
+  height: 34px;
   padding: 7px 11px;
 
   border:
