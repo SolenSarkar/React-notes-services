@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 
-const Login = () => {
-  const navigate = useNavigate();
+const API_URL =
+  import.meta.env.VITE_API_URL || "";
 
+const Login = ({
+  onLogin,
+  onSwitchToRegister,
+}) => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -23,32 +26,63 @@ const Login = () => {
     e.preventDefault();
 
     setError("");
+
+    if (!formData.email.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    if (!formData.password) {
+      setError("Password is required");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/login",
+        `${API_URL}/api/auth/login`,
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(formData),
+
+          body: JSON.stringify({
+            email: formData.email.trim(),
+            password: formData.password,
+          }),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Login failed");
+        throw new Error(
+          data.message || "Login failed"
+        );
       }
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      if (!data.token || !data.user) {
+        throw new Error(
+          "Invalid login response from server"
+        );
+      }
 
-      navigate("/");
+      /*
+       * App.jsx handles:
+       * - localStorage
+       * - user state
+       * - redirecting to Notes
+       */
+      onLogin(data);
     } catch (error) {
-      setError(error.message);
+      console.error("Login error:", error);
+
+      setError(
+        error.message || "Unable to login"
+      );
     } finally {
       setLoading(false);
     }
@@ -57,10 +91,16 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-brand">
+          <div className="brand-icon">✦</div>
 
+          <span>Notes Service</span>
+        </div>
         <h1>Welcome Back</h1>
 
-        <p>Sign in to manage your todos</p>
+        <p>
+          Sign in to manage your notes
+        </p>
 
         {error && (
           <div className="auth-error">
@@ -71,27 +111,35 @@ const Login = () => {
         <form onSubmit={handleSubmit}>
 
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="email">
+              Email
+            </label>
 
             <input
+              id="email"
               type="email"
               name="email"
               placeholder="Enter your email"
               value={formData.email}
               onChange={handleChange}
+              autoComplete="email"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="password">
+              Password
+            </label>
 
             <input
+              id="password"
               type="password"
               name="password"
               placeholder="Enter your password"
               value={formData.password}
               onChange={handleChange}
+              autoComplete="current-password"
               required
             />
           </div>
@@ -100,16 +148,23 @@ const Login = () => {
             type="submit"
             disabled={loading}
           >
-            {loading ? "Signing in..." : "Sign In"}
+            {loading
+              ? "Signing in..."
+              : "Sign In"}
           </button>
 
         </form>
 
         <p className="auth-link">
           Don't have an account?{" "}
-          <Link to="/register">
+
+          <button
+            type="button"
+            className="auth-switch-button"
+            onClick={onSwitchToRegister}
+          >
             Create an account
-          </Link>
+          </button>
         </p>
 
       </div>

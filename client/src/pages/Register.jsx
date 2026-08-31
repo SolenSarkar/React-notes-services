@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 
-const Register = () => {
-  const navigate = useNavigate();
+const API_URL =
+  import.meta.env.VITE_API_URL || "";
 
+const Register = ({
+  onRegister,
+  onSwitchToLogin,
+}) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,13 +29,31 @@ const Register = () => {
 
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+
+    if (!name) {
+      setError("Name is required");
+      return;
+    }
+
+    if (!email) {
+      setError("Email is required");
       return;
     }
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(
+        "Password must be at least 6 characters"
+      );
+      return;
+    }
+
+    if (
+      formData.password !==
+      formData.confirmPassword
+    ) {
+      setError("Passwords do not match");
       return;
     }
 
@@ -40,15 +61,17 @@ const Register = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/register",
+        `${API_URL}/api/auth/register`,
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
+
           body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
+            name,
+            email,
             password: formData.password,
           }),
         }
@@ -58,16 +81,37 @@ const Register = () => {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Registration failed"
+          data.message ||
+          "Registration failed"
         );
       }
 
-      alert("Registration successful!");
+      /*
+       * If backend automatically logs the
+       * user in and returns token + user,
+       * continue directly to Notes.
+       */
+      if (data.token && data.user) {
+        onRegister(data);
+        return;
+      }
 
-      navigate("/login");
+      /*
+       * If registration only creates the account,
+       * return to Login.
+       */
+      onSwitchToLogin();
 
     } catch (error) {
-      setError(error.message);
+      console.error(
+        "Registration error:",
+        error
+      );
+
+      setError(
+        error.message ||
+        "Unable to create account"
+      );
     } finally {
       setLoading(false);
     }
@@ -76,10 +120,16 @@ const Register = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-brand">
+          <div className="brand-icon">✦</div>
 
+          <span>Notes Service</span>
+        </div>
         <h1>Create Account</h1>
 
-        <p>Register to start managing your todos</p>
+        <p>
+          Register to start managing your notes
+        </p>
 
         {error && (
           <div className="auth-error">
@@ -90,53 +140,71 @@ const Register = () => {
         <form onSubmit={handleSubmit}>
 
           <div className="form-group">
-            <label>Name</label>
+            <label htmlFor="name">
+              Name
+            </label>
 
             <input
+              id="name"
               type="text"
               name="name"
               placeholder="Enter your name"
               value={formData.name}
               onChange={handleChange}
+              autoComplete="name"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="email">
+              Email
+            </label>
 
             <input
+              id="email"
               type="email"
               name="email"
               placeholder="Enter your email"
               value={formData.email}
               onChange={handleChange}
+              autoComplete="email"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="password">
+              Password
+            </label>
 
             <input
+              id="password"
               type="password"
               name="password"
               placeholder="Minimum 6 characters"
               value={formData.password}
               onChange={handleChange}
+              autoComplete="new-password"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Confirm Password</label>
+            <label htmlFor="confirmPassword">
+              Confirm Password
+            </label>
 
             <input
+              id="confirmPassword"
               type="password"
               name="confirmPassword"
               placeholder="Confirm your password"
-              value={formData.confirmPassword}
+              value={
+                formData.confirmPassword
+              }
               onChange={handleChange}
+              autoComplete="new-password"
               required
             />
           </div>
@@ -145,16 +213,23 @@ const Register = () => {
             type="submit"
             disabled={loading}
           >
-            {loading ? "Creating account..." : "Sign Up"}
+            {loading
+              ? "Creating account..."
+              : "Sign Up"}
           </button>
 
         </form>
 
         <p className="auth-link">
           Already have an account?{" "}
-          <Link to="/login">
+
+          <button
+            type="button"
+            className="auth-switch-button"
+            onClick={onSwitchToLogin}
+          >
             Sign In
-          </Link>
+          </button>
         </p>
 
       </div>

@@ -1,21 +1,24 @@
-# Render Blueprint — deploys the Express + MongoDB backend from the server/ subfolder.
-# Set the two env vars below in your Render dashboard (they are secrets, so they
-# are NOT stored in render.yaml):
-#   MONGODB_URI  -> your MongoDB Atlas / local connection string
-#   CLIENT_URL   -> https://Solensarkar.github.io/React-ToDo-List/
-
 services:
   - type: web
-    name: react-todo-backend
+    name: notes-service-backend
     runtime: node
+
     rootDir: server
+
     buildCommand: npm install
     startCommand: npm start
+
     healthCheckPath: /
+
     envVars:
       - key: PORT
         value: 10000
+
       - key: MONGODB_URI
         sync: false
+
+      - key: JWT_SECRET
+        sync: false
+
       - key: CLIENT_URL
         sync: false
