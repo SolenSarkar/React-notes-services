@@ -11,23 +11,33 @@ dotenv.config();
 
 const app = express();
 
+// ===============================
+// CORS
+// ===============================
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://solensarkar.github.io",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.options("*", cors());
 
 // ===============================
 // MIDDLEWARE
 // ===============================
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      process.env.CLIENT_URL,
-    ].filter(Boolean),
-    credentials: true,
-  })
-);
-
 app.use(express.json());
-
 
 // ===============================
 // ROUTES
@@ -36,7 +46,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notes", noteRoutes);
-
 
 // ===============================
 // HEALTH CHECK
@@ -47,7 +56,6 @@ app.get("/", (req, res) => {
     message: "Notes API is running",
   });
 });
-
 
 // ===============================
 // DATABASE
