@@ -2,36 +2,161 @@ import { useCallback, useEffect, useState } from "react";
 import Pagination from "../components/Pagination";
 
 const API_URL =
-  import.meta.env.VITE_API_URL;
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 function Admin({ user, onBack, onLogout }) {
-  const [notes, setNotes] = useState([]);
+  // =====================================================
+  // STATE
+  // =====================================================
 
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
-  const [page, setPage] = useState(1);
-  const [limit] = useState(10);
-
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalNotes: 0,
+    totalAdmins: 0,
+    totalRegularUsers: 0,
   });
 
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [notes, setNotes] = useState([]);
+
+  const [userSearchInput, setUserSearchInput] =
+    useState("");
+
+  const [userSearch, setUserSearch] =
+    useState("");
+
+  const [noteSearchInput, setNoteSearchInput] =
+    useState("");
+
+  const [noteSearch, setNoteSearch] =
+    useState("");
+
+  const [userPage, setUserPage] = useState(1);
+  const [notePage, setNotePage] = useState(1);
+
+  const [limit] = useState(10);
+
+  const [userPagination, setUserPagination] =
+    useState({
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+
+  const [notePagination, setNotePagination] =
+    useState({
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+
+  const [loadingStats, setLoadingStats] =
+    useState(true);
+
+  const [loadingUsers, setLoadingUsers] =
+    useState(false);
+
+  const [loadingNotes, setLoadingNotes] =
+    useState(false);
+
   const [error, setError] = useState("");
+
+  // =====================================================
+  // TOKEN
+  // =====================================================
 
   const getToken = () => {
     return localStorage.getItem("token");
   };
 
-  const fetchNotes = useCallback(async () => {
+  // =====================================================
+  // COMMON AUTH HEADERS
+  // =====================================================
+
+  const getHeaders = () => {
+    const token = getToken();
+
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  };
+
+  // =====================================================
+  // LOAD STATS
+  // =====================================================
+
+  const fetchStats = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoadingStats(true);
+      setError("");
+
+      const token = getToken();
+
+      if (!token) {
+        onLogout();
+        return;
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/admin/stats`,
+        {
+          headers: getHeaders(),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
+          onLogout();
+          return;
+        }
+
+        throw new Error(
+          data.message ||
+            "Failed to load dashboard statistics"
+        );
+      }
+
+      setStats({
+        totalUsers: data.totalUsers || 0,
+        totalNotes: data.totalNotes || 0,
+        totalAdmins: data.totalAdmins || 0,
+        totalRegularUsers:
+          data.totalRegularUsers || 0,
+      });
+    } catch (err) {
+      console.error("Admin stats error:", err);
+
+      setError(
+        err.message ||
+          "Failed to load dashboard statistics"
+      );
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [onLogout]);
+
+  // =====================================================
+  // LOAD USERS
+  // =====================================================
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoadingUsers(true);
       setError("");
 
       const token = getToken();
@@ -42,33 +167,123 @@ function Admin({ user, onBack, onLogout }) {
       }
 
       const params = new URLSearchParams({
-        page: String(page),
+        page: String(userPage),
         limit: String(limit),
       });
 
-      if (search.trim()) {
-        params.append("search", search.trim());
+      if (userSearch.trim()) {
+        params.append(
+          "search",
+          userSearch.trim()
+        );
       }
 
       const response = await fetch(
-        `${API_URL}/api/admin/notes?${params.toString()}`,
+        `${API_URL}/api/admin/users?${params.toString()}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getHeaders(),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
           onLogout();
           return;
         }
 
         throw new Error(
-          data.message || "Failed to load admin notes"
+          data.message ||
+            "Failed to load users"
+        );
+      }
+
+      setUsers(
+        Array.isArray(data.users)
+          ? data.users
+          : []
+      );
+
+      setUserPagination(
+        data.pagination || {
+          page: 1,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        }
+      );
+    } catch (err) {
+      console.error("Admin users error:", err);
+
+      setError(
+        err.message ||
+          "Failed to load users"
+      );
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [
+    userPage,
+    userSearch,
+    limit,
+    onLogout,
+  ]);
+
+  // =====================================================
+  // LOAD NOTES
+  // =====================================================
+
+  const fetchNotes = useCallback(async () => {
+    try {
+      setLoadingNotes(true);
+      setError("");
+
+      const token = getToken();
+
+      if (!token) {
+        onLogout();
+        return;
+      }
+
+      const params = new URLSearchParams({
+        page: String(notePage),
+        limit: String(limit),
+      });
+
+      if (noteSearch.trim()) {
+        params.append(
+          "search",
+          noteSearch.trim()
+        );
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/admin/notes?${params.toString()}`,
+        {
+          headers: getHeaders(),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
+          onLogout();
+          return;
+        }
+
+        throw new Error(
+          data.message ||
+            "Failed to load admin notes"
         );
       }
 
@@ -78,7 +293,7 @@ function Admin({ user, onBack, onLogout }) {
           : []
       );
 
-      setPagination(
+      setNotePagination(
         data.pagination || {
           page: 1,
           limit,
@@ -92,25 +307,86 @@ function Admin({ user, onBack, onLogout }) {
       console.error("Admin notes error:", err);
 
       setError(
-        err.message || "Failed to load notes"
+        err.message ||
+          "Failed to load notes"
       );
     } finally {
-      setLoading(false);
+      setLoadingNotes(false);
     }
-  }, [page, limit, search, onLogout]);
+  }, [
+    notePage,
+    noteSearch,
+    limit,
+    onLogout,
+  ]);
+
+  // =====================================================
+  // INITIAL DASHBOARD LOAD
+  // =====================================================
 
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    fetchStats();
+  }, [fetchStats]);
 
-  const handleSearch = (e) => {
+  // =====================================================
+  // LOAD USERS WHEN USERS TAB IS OPENED
+  // =====================================================
+
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchUsers();
+    }
+  }, [activeTab, fetchUsers]);
+
+  // =====================================================
+  // LOAD NOTES WHEN NOTES TAB IS OPENED
+  // =====================================================
+
+  useEffect(() => {
+    if (activeTab === "notes") {
+      fetchNotes();
+    }
+  }, [activeTab, fetchNotes]);
+
+  // =====================================================
+  // USER SEARCH
+  // =====================================================
+
+  const handleUserSearch = (e) => {
     e.preventDefault();
 
-    setPage(1);
-    setSearch(searchInput);
+    setUserPage(1);
+    setUserSearch(userSearchInput);
   };
 
-  const handleDelete = async (noteId) => {
+  const clearUserSearch = () => {
+    setUserSearchInput("");
+    setUserSearch("");
+    setUserPage(1);
+  };
+
+  // =====================================================
+  // NOTE SEARCH
+  // =====================================================
+
+  const handleNoteSearch = (e) => {
+    e.preventDefault();
+
+    setNotePage(1);
+    setNoteSearch(noteSearchInput);
+  };
+
+  const clearNoteSearch = () => {
+    setNoteSearchInput("");
+    setNoteSearch("");
+    setNotePage(1);
+  };
+
+  // =====================================================
+  // DELETE NOTE
+  // =====================================================
+
+  const handleDeleteNote = async (noteId) => {
     const confirmed = window.confirm(
       "Are you sure you want to remove this note?"
     );
@@ -120,53 +396,129 @@ function Admin({ user, onBack, onLogout }) {
     }
 
     try {
+      setError("");
+
       const token = getToken();
+
+      if (!token) {
+        onLogout();
+        return;
+      }
 
       const response = await fetch(
         `${API_URL}/api/admin/notes/${noteId}`,
         {
           method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getHeaders(),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
           onLogout();
           return;
         }
 
         throw new Error(
-          data.message || "Failed to delete note"
+          data.message ||
+            "Failed to delete note"
         );
       }
 
-      await fetchNotes();
+      // Remove from current list immediately
+      setNotes((currentNotes) =>
+        currentNotes.filter(
+          (note) => note._id !== noteId
+        )
+      );
+
+      // Update totals
+      setStats((currentStats) => ({
+        ...currentStats,
+        totalNotes: Math.max(
+          0,
+          currentStats.totalNotes - 1
+        ),
+      }));
+
+      setNotePagination(
+        (currentPagination) => ({
+          ...currentPagination,
+          total: Math.max(
+            0,
+            currentPagination.total - 1
+          ),
+        })
+      );
     } catch (err) {
-      console.error("Admin delete error:", err);
+      console.error(
+        "Admin delete note error:",
+        err
+      );
 
       setError(
-        err.message || "Failed to delete note"
+        err.message ||
+          "Failed to delete note"
       );
     }
   };
 
-  return (
-    <div className="admin-page">
-      <header className="notes-header">
-        <div>
-          <h1>🛡️ Admin Moderation</h1>
+  // =====================================================
+  // ACCESS PROTECTION
+  // =====================================================
+
+  if (!user || user.role !== "admin") {
+    return (
+      <div className="admin-page">
+        <main className="admin-access-denied">
+          <h2>Access Denied</h2>
 
           <p>
-            Logged in as {user?.name || user?.email}
+            You must be an administrator to
+            access this page.
+          </p>
+
+          <button
+            type="button"
+            onClick={onBack}
+          >
+            Back to Notes
+          </button>
+        </main>
+      </div>
+    );
+  }
+
+  // =====================================================
+  // RENDER
+  // =====================================================
+
+  return (
+    <div className="admin-page">
+
+      {/* ==========================================
+          HEADER
+      ========================================== */}
+
+      <header className="admin-header">
+        <div>
+          <h1>🛡️ Admin Dashboard</h1>
+
+          <p>
+            Welcome,{" "}
+            <strong>
+              {user.name || user.email}
+            </strong>
           </p>
         </div>
 
         <div className="admin-header-actions">
+
           <button
             type="button"
             onClick={onBack}
@@ -180,120 +532,443 @@ function Admin({ user, onBack, onLogout }) {
           >
             Logout
           </button>
+
         </div>
       </header>
 
-      <main className="notes-container">
-        <form
-          className="search-form"
-          onSubmit={handleSearch}
-        >
-          <input
-            type="text"
-            placeholder="Search all notes..."
-            value={searchInput}
-            onChange={(e) =>
-              setSearchInput(e.target.value)
-            }
-          />
+      {/* ==========================================
+          NAVIGATION
+      ========================================== */}
 
-          <button type="submit">
-            Search
-          </button>
+      <nav className="admin-nav">
 
-          {search && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchInput("");
-                setSearch("");
-                setPage(1);
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </form>
-
-        <div className="admin-summary">
-          Total notes: {pagination.total}
-        </div>
-
-        {error && (
-          <div className="notes-error">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="notes-loading">
-            Loading notes...
-          </div>
-        ) : notes.length === 0 ? (
-          <div className="empty-notes">
-            <h3>No notes found</h3>
-          </div>
-        ) : (
-          <div className="notes-list">
-            {notes.map((note) => (
-              <div
-                className="note-card admin-note-card"
-                key={note._id}
-              >
-                <div className="note-card-content">
-                  <h3>{note.title}</h3>
-
-                  <p>{note.content}</p>
-
-                  <div className="note-owner">
-                    <strong>Owner:</strong>{" "}
-                    {note.user?.name || "Unknown"}
-                    {" — "}
-                    {note.user?.email || "Unknown"}
-                  </div>
-
-                  <small>
-                    Created:{" "}
-                    {note.createdAt
-                      ? new Date(
-                          note.createdAt
-                        ).toLocaleString()
-                      : ""}
-                  </small>
-                </div>
-
-                <div className="note-actions">
-                  <button
-                    type="button"
-                    className="delete-button"
-                    onClick={() =>
-                      handleDelete(note._id)
-                    }
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Pagination
-          page={pagination.page}
-          totalPages={pagination.totalPages}
-          hasNextPage={pagination.hasNextPage}
-          hasPreviousPage={
-            pagination.hasPreviousPage
+        <button
+          type="button"
+          className={
+            activeTab === "dashboard"
+              ? "active"
+              : ""
           }
-          onPageChange={(newPage) => {
-            setPage(newPage);
+          onClick={() =>
+            setActiveTab("dashboard")
+          }
+        >
+          Dashboard
+        </button>
 
-            window.scrollTo({
-              top: 0,
-              behavior: "smooth",
-            });
-          }}
-        />
+        <button
+          type="button"
+          className={
+            activeTab === "users"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setActiveTab("users")
+          }
+        >
+          Users
+        </button>
+
+        <button
+          type="button"
+          className={
+            activeTab === "notes"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setActiveTab("notes")
+          }
+        >
+          Notes
+        </button>
+
+      </nav>
+
+      {/* ==========================================
+          ERROR
+      ========================================== */}
+
+      {error && (
+        <div className="notes-error">
+          {error}
+        </div>
+      )}
+
+      <main className="admin-content">
+
+        {/* ========================================
+            DASHBOARD TAB
+        ======================================== */}
+
+        {activeTab === "dashboard" && (
+          <section>
+
+            <div className="admin-section-title">
+              <h2>Overview</h2>
+
+              <button
+                type="button"
+                onClick={() => {
+                  fetchStats();
+                  fetchUsers();
+                  fetchNotes();
+                }}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {loadingStats ? (
+              <div className="notes-loading">
+                Loading statistics...
+              </div>
+            ) : (
+              <div className="admin-stats-grid">
+
+                <div className="admin-stat-card">
+                  <span>Total Users</span>
+                  <strong>
+                    {stats.totalUsers}
+                  </strong>
+                </div>
+
+                <div className="admin-stat-card">
+                  <span>Total Notes</span>
+                  <strong>
+                    {stats.totalNotes}
+                  </strong>
+                </div>
+
+                <div className="admin-stat-card">
+                  <span>Administrators</span>
+                  <strong>
+                    {stats.totalAdmins}
+                  </strong>
+                </div>
+
+                <div className="admin-stat-card">
+                  <span>Regular Users</span>
+                  <strong>
+                    {stats.totalRegularUsers}
+                  </strong>
+                </div>
+
+              </div>
+            )}
+
+            <div className="admin-welcome-card">
+
+              <h2>
+                Welcome to the Admin Panel
+              </h2>
+
+              <p>
+                From here you can monitor
+                users and moderate notes
+                across the React Notes
+                Services platform.
+              </p>
+
+            </div>
+
+          </section>
+        )}
+
+        {/* ========================================
+            USERS TAB
+        ======================================== */}
+
+        {activeTab === "users" && (
+          <section>
+
+            <div className="admin-section-title">
+              <div>
+                <h2>User Management</h2>
+
+                <p>
+                  View registered users
+                  and their roles.
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="search-form"
+              onSubmit={handleUserSearch}
+            >
+
+              <input
+                type="text"
+                placeholder="Search users by name or email..."
+                value={userSearchInput}
+                onChange={(e) =>
+                  setUserSearchInput(
+                    e.target.value
+                  )
+                }
+              />
+
+              <button type="submit">
+                Search
+              </button>
+
+              {userSearch && (
+                <button
+                  type="button"
+                  onClick={clearUserSearch}
+                >
+                  Clear
+                </button>
+              )}
+
+            </form>
+
+            <div className="admin-summary">
+              Total users:{" "}
+              {userPagination.total}
+            </div>
+
+            {loadingUsers ? (
+              <div className="notes-loading">
+                Loading users...
+              </div>
+            ) : users.length === 0 ? (
+              <div className="empty-notes">
+                <h3>No users found</h3>
+              </div>
+            ) : (
+              <div className="admin-table-wrapper">
+
+                <table className="admin-table">
+
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Joined</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+
+                    {users.map((item) => (
+                      <tr key={item._id}>
+
+                        <td>
+                          {item.name}
+                        </td>
+
+                        <td>
+                          {item.email}
+                        </td>
+
+                        <td>
+                          <span
+                            className={`role-badge ${item.role}`}
+                          >
+                            {item.role}
+                          </span>
+                        </td>
+
+                        <td>
+                          {item.createdAt
+                            ? new Date(
+                                item.createdAt
+                              ).toLocaleDateString()
+                            : "-"}
+                        </td>
+
+                      </tr>
+                    ))}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+            )}
+
+            <Pagination
+              page={userPagination.page}
+              totalPages={
+                userPagination.totalPages
+              }
+              hasNextPage={
+                userPagination.hasNextPage
+              }
+              hasPreviousPage={
+                userPagination.hasPreviousPage
+              }
+              onPageChange={(newPage) => {
+                setUserPage(newPage);
+
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }}
+            />
+
+          </section>
+        )}
+
+        {/* ========================================
+            NOTES TAB
+        ======================================== */}
+
+        {activeTab === "notes" && (
+          <section>
+
+            <div className="admin-section-title">
+              <div>
+                <h2>Notes Management</h2>
+
+                <p>
+                  View and moderate all
+                  notes created by users.
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="search-form"
+              onSubmit={handleNoteSearch}
+            >
+
+              <input
+                type="text"
+                placeholder="Search all notes..."
+                value={noteSearchInput}
+                onChange={(e) =>
+                  setNoteSearchInput(
+                    e.target.value
+                  )
+                }
+              />
+
+              <button type="submit">
+                Search
+              </button>
+
+              {noteSearch && (
+                <button
+                  type="button"
+                  onClick={clearNoteSearch}
+                >
+                  Clear
+                </button>
+              )}
+
+            </form>
+
+            <div className="admin-summary">
+              Total notes:{" "}
+              {notePagination.total}
+            </div>
+
+            {loadingNotes ? (
+              <div className="notes-loading">
+                Loading notes...
+              </div>
+            ) : notes.length === 0 ? (
+              <div className="empty-notes">
+                <h3>No notes found</h3>
+              </div>
+            ) : (
+              <div className="notes-list">
+
+                {notes.map((note) => (
+                  <div
+                    className="note-card admin-note-card"
+                    key={note._id}
+                  >
+
+                    <div className="note-card-content">
+
+                      <h3>
+                        {note.title}
+                      </h3>
+
+                      <p>
+                        {note.content}
+                      </p>
+
+                      <div className="note-owner">
+
+                        <strong>
+                          Owner:
+                        </strong>{" "}
+
+                        {note.user?.name ||
+                          "Unknown"}
+
+                        {" — "}
+
+                        {note.user?.email ||
+                          "Unknown"}
+
+                      </div>
+
+                      <small>
+                        Created:{" "}
+                        {note.createdAt
+                          ? new Date(
+                              note.createdAt
+                            ).toLocaleString()
+                          : "-"}
+                      </small>
+
+                    </div>
+
+                    <div className="note-actions">
+
+                      <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() =>
+                          handleDeleteNote(
+                            note._id
+                          )
+                        }
+                      >
+                        Remove
+                      </button>
+
+                    </div>
+
+                  </div>
+                ))}
+
+              </div>
+            )}
+
+            <Pagination
+              page={notePagination.page}
+              totalPages={
+                notePagination.totalPages
+              }
+              hasNextPage={
+                notePagination.hasNextPage
+              }
+              hasPreviousPage={
+                notePagination.hasPreviousPage
+              }
+              onPageChange={(newPage) => {
+                setNotePage(newPage);
+
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }}
+            />
+
+          </section>
+        )}
+
       </main>
     </div>
   );
