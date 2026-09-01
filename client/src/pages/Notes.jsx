@@ -4,7 +4,7 @@ import NoteList from "../components/NoteList";
 import Pagination from "../components/Pagination";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL;
 
 function Notes({ user, onLogout, onOpenAdmin }) {
   const [notes, setNotes] = useState([]);

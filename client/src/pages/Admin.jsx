@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Pagination from "../components/Pagination";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL;
 
 function Admin({ user, onBack, onLogout }) {
   const [notes, setNotes] = useState([]);
