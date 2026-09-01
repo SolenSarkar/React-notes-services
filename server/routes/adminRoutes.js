@@ -11,8 +11,10 @@ const router = express.Router();
 
 
 // =====================================================
-// ADMIN STATS
+// GET ADMIN STATISTICS
 // GET /api/admin/stats
+//
+// Admin only
 // =====================================================
 
 router.get(
@@ -22,15 +24,18 @@ router.get(
   async (req, res) => {
     try {
       const totalUsers = await User.countDocuments();
-      const totalNotes = await Note.countDocuments();
 
       const totalAdmins = await User.countDocuments({
         role: "admin",
       });
 
-      const totalRegularUsers = await User.countDocuments({
-        role: "user",
-      });
+      const totalRegularUsers =
+        await User.countDocuments({
+          role: "user",
+        });
+
+      const totalNotes =
+        await Note.countDocuments();
 
       return res.status(200).json({
         totalUsers,
@@ -39,10 +44,14 @@ router.get(
         totalRegularUsers,
       });
     } catch (error) {
-      console.error("Admin stats error:", error);
+      console.error(
+        "Admin stats error:",
+        error
+      );
 
       return res.status(500).json({
-        message: "Server error while fetching statistics",
+        message:
+          "Server error while fetching statistics",
       });
     }
   }
@@ -57,6 +66,8 @@ router.get(
 // ?search=solen
 // ?page=1
 // ?limit=10
+//
+// Admin only
 // =====================================================
 
 router.get(
@@ -74,30 +85,39 @@ router.get(
       page = Number(page);
       limit = Number(limit);
 
-      if (!Number.isInteger(page) || page < 1) {
+      // Validate page
+      if (
+        !Number.isInteger(page) ||
+        page < 1
+      ) {
         return res.status(400).json({
-          message: "Page must be a positive integer",
+          message:
+            "Page must be a positive integer",
         });
       }
 
+      // Validate limit
       if (
         !Number.isInteger(limit) ||
         limit < 1 ||
         limit > 100
       ) {
         return res.status(400).json({
-          message: "Limit must be between 1 and 100",
+          message:
+            "Limit must be between 1 and 100",
         });
       }
 
       if (typeof search !== "string") {
         return res.status(400).json({
-          message: "Search must be a string",
+          message:
+            "Search must be a string",
         });
       }
 
       search = search.trim();
 
+      // Build query
       const query = {};
 
       if (search) {
@@ -119,7 +139,8 @@ router.get(
 
       const skip = (page - 1) * limit;
 
-      const total = await User.countDocuments(query);
+      const total =
+        await User.countDocuments(query);
 
       const users = await User.find(query)
         .select("-password")
@@ -127,7 +148,8 @@ router.get(
         .skip(skip)
         .limit(limit);
 
-      const totalPages = Math.ceil(total / limit);
+      const totalPages =
+        Math.ceil(total / limit);
 
       return res.status(200).json({
         users,
@@ -136,15 +158,21 @@ router.get(
           limit,
           total,
           totalPages,
-          hasNextPage: page < totalPages,
-          hasPreviousPage: page > 1,
+          hasNextPage:
+            page < totalPages,
+          hasPreviousPage:
+            page > 1,
         },
       });
     } catch (error) {
-      console.error("Admin get users error:", error);
+      console.error(
+        "Admin get users error:",
+        error
+      );
 
       return res.status(500).json({
-        message: "Server error while fetching users",
+        message:
+          "Server error while fetching users",
       });
     }
   }
@@ -154,6 +182,13 @@ router.get(
 // =====================================================
 // GET ALL NOTES
 // GET /api/admin/notes
+//
+// Admin only
+//
+// Supports:
+// ?search=react
+// ?page=1
+// ?limit=10
 // =====================================================
 
 router.get(
@@ -171,25 +206,33 @@ router.get(
       page = Number(page);
       limit = Number(limit);
 
-      if (!Number.isInteger(page) || page < 1) {
+      // Validate page
+      if (
+        !Number.isInteger(page) ||
+        page < 1
+      ) {
         return res.status(400).json({
-          message: "Page must be a positive integer",
+          message:
+            "Page must be a positive integer",
         });
       }
 
+      // Validate limit
       if (
         !Number.isInteger(limit) ||
         limit < 1 ||
         limit > 100
       ) {
         return res.status(400).json({
-          message: "Limit must be between 1 and 100",
+          message:
+            "Limit must be between 1 and 100",
         });
       }
 
       if (typeof search !== "string") {
         return res.status(400).json({
-          message: "Search must be a string",
+          message:
+            "Search must be a string",
         });
       }
 
@@ -216,15 +259,20 @@ router.get(
 
       const skip = (page - 1) * limit;
 
-      const total = await Note.countDocuments(query);
+      const total =
+        await Note.countDocuments(query);
 
       const notes = await Note.find(query)
-        .populate("user", "name email role")
+        .populate(
+          "user",
+          "name email role"
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
 
-      const totalPages = Math.ceil(total / limit);
+      const totalPages =
+        Math.ceil(total / limit);
 
       return res.status(200).json({
         notes,
@@ -233,15 +281,21 @@ router.get(
           limit,
           total,
           totalPages,
-          hasNextPage: page < totalPages,
-          hasPreviousPage: page > 1,
+          hasNextPage:
+            page < totalPages,
+          hasPreviousPage:
+            page > 1,
         },
       });
     } catch (error) {
-      console.error("Admin get notes error:", error);
+      console.error(
+        "Admin get notes error:",
+        error
+      );
 
       return res.status(500).json({
-        message: "Server error while fetching notes",
+        message:
+          "Server error while fetching notes",
       });
     }
   }
@@ -251,6 +305,8 @@ router.get(
 // =====================================================
 // DELETE ANY NOTE
 // DELETE /api/admin/notes/:id
+//
+// Admin only
 // =====================================================
 
 router.delete(
@@ -261,13 +317,16 @@ router.delete(
     try {
       const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
+      if (
+        !mongoose.Types.ObjectId.isValid(id)
+      ) {
         return res.status(400).json({
           message: "Invalid note ID",
         });
       }
 
-      const note = await Note.findByIdAndDelete(id);
+      const note =
+        await Note.findByIdAndDelete(id);
 
       if (!note) {
         return res.status(404).json({
@@ -276,13 +335,18 @@ router.delete(
       }
 
       return res.status(200).json({
-        message: "Note removed by administrator",
+        message:
+          "Note removed by administrator",
       });
     } catch (error) {
-      console.error("Admin delete note error:", error);
+      console.error(
+        "Admin delete note error:",
+        error
+      );
 
       return res.status(500).json({
-        message: "Server error while deleting note",
+        message:
+          "Server error while deleting note",
       });
     }
   }
