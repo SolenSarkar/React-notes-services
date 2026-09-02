@@ -52,7 +52,7 @@ function Admin({ user, onBack, onLogout }) {
   const [notePagination, setNotePagination] =
     useState({
       page: 1,
-      limit: 10,
+      limit: 9,
       total: 0,
       totalPages: 0,
       hasNextPage: false,
