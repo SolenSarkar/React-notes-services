@@ -37,7 +37,7 @@ function Admin({ user, onBack, onLogout }) {
   const [userPage, setUserPage] = useState(1);
   const [notePage, setNotePage] = useState(1);
 
-  const [limit] = useState(10);
+  const [limit] = useState(9);
 
   const [userPagination, setUserPagination] =
     useState({
